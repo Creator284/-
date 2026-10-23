@@ -1,0 +1,51 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/>    // server.js -- один файл для запуска чата
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
+
+// Отдаём простую страницу для теста в браузере
+app.get('/', (req, res) => {
+  res.send(`
+    <h1>Тестовый чат</h1>
+    <ul id="messages"></ul>
+    <input id="input" autocomplete="off" /><button onclick="send()">Отправить</button>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      socket.on('chat message', (msg) => {
+        const li = document.createElement('li');
+        li.textContent = msg;
+        document.getElementById('messages').appendChild(li);
+      });
+      function send() {
+        const input = document.getElementById('input');
+        if (input.value) {
+          socket.emit('chat message', input.value);
+          input.value = '';
+        }
+      }
+    </script>
+  `);
+});
+
+// Логика реального времени
+io.on('connection', (socket) => {
+  console.log('Пользователь подключился:', socket.id);
+
+  socket.on('chat message', (msg) => {
+    // Пересылаем сообщение всем, включая отправителя (для простоты)
+    io.emit('chat message', `${socket.id}: ${msg}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Пользователь отключился:', socket.id);
+  });
+});
+
+server.listen(3000, () => {
+  console.log('Сервер чата запущен на http://localhost:3000');
+});
